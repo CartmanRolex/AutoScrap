@@ -21,3 +21,81 @@ and store them incrementally in a local SQLite database.
 
 ## Git Remote
 git@github-autoscrap:CartmanRolex/AutoScrap.git
+
+---
+
+## Phase 1 Findings — API & Data Format
+
+### Cloudflare bypass
+patchright (v1.59.1) passes CF Managed Challenge automatically in non-headless mode.
+No additional config needed — just launch with `headless=False`.
+
+### Data source
+Listings are **not** fetched via XHR/API calls. They are embedded in the SSR HTML as a
+single `<script type="application/ld+json" data-testid="structured-schema-srp">` block.
+The block is a schema.org `Organization` object whose `mainEntity.offers.itemListElement`
+array contains one entry per listing. Each entry has an `offers` object (price, URL, seller)
+with an `itemOffered` of type `Car`.
+
+### JSON-LD path to listings
+```
+root                              (Organization)
+  .mainEntity                     (ItemList or similar)
+    .offers
+      .itemListElement[i]
+        .offers                   (Offer)
+          .priceCurrency          "CHF"
+          .price                  65900
+          .url                    "https://www.autoscout24.ch/fr/d/bmw-...-20478974"
+          .availability           "https://schema.org/InStock"
+          .seller                 (AutoDealer or Person)
+            .name, .address.addressLocality, .address.postalCode
+          .itemOffered            (Car)
+            .name                 "BMW 540d xDrive 48V Touring M Sport Pro AHK 4x4"
+            .brand.name           "BMW"
+            .model                "540"
+            .vehicleTransmission  "Automatique"
+            .mileageFromOdometer.value  14500
+            .vehicleEngine.enginePower.value  303
+            .vehicleEngine.fuelType     "Hybride léger diesel/électrique"
+            .image                "https://listing-images.autoscout24.ch/..."
+```
+
+### Listing ID extraction
+The listing ID is the last segment of the URL, e.g. `20478974` from
+`https://www.autoscout24.ch/fr/d/bmw-...-20478974`.
+
+### Fields available
+| Field | Source | Notes |
+|---|---|---|
+| price_chf | offers.price | integer CHF |
+| url | offers.url | contains listing ID |
+| seller_name | offers.seller.name | |
+| seller_type | offers.seller.@type | AutoDealer / Person |
+| seller_city | offers.seller.address.addressLocality | |
+| car_name | itemOffered.name | full title |
+| car_brand | itemOffered.brand.name | |
+| car_model | itemOffered.model | |
+| car_transmission | itemOffered.vehicleTransmission | |
+| car_km | itemOffered.mileageFromOdometer.value | |
+| car_power_hp | itemOffered.vehicleEngine.enginePower.value | |
+| car_fuel | itemOffered.vehicleEngine.fuelType | |
+| car_image | itemOffered.image | |
+| car_year | itemOffered.modelDate | often null in listing view |
+| car_body | itemOffered.bodyType | often null in listing view |
+
+### Scraping strategy (Phase 2)
+1. Keep the patchright browser session alive (CF cookies stay valid).
+2. Every 120s: navigate to `https://www.autoscout24.ch/fr/s` (or call `page.reload()`).
+3. Extract the JSON-LD block with `re.findall(r'<script[^>]*application/ld\+json[^>]*>(.*?)</script>', html, re.DOTALL)`.
+4. Parse → extract `mainEntity.offers.itemListElement[*].offers`.
+5. Derive listing ID from URL tail.
+6. Upsert into SQLite (dedup by ID).
+
+### Pagination
+The listing page shows ~20 results. To get more, append `?page=2` etc. or use filters.
+For incremental tracking, page 1 sorted by newest is sufficient (sort param TBD).
+
+### Sorting by newest
+Need to discover the sort parameter. Candidate: `?sort=10` or `?sort=age_asc`.
+Run `discover.py` again with `?sort=...` variants to confirm.
