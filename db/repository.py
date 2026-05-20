@@ -4,6 +4,10 @@ from datetime import datetime, timezone
 _LISTING_COLUMNS = (
     "id",
     "source",
+    "canonical_id",
+    "external_source",
+    "external_id",
+    "external_url",
     "url",
     "version_full_name",
     "condition_type",
@@ -64,6 +68,7 @@ def _listing_record(listing: dict, now: str) -> dict:
     record = dict.fromkeys(_LISTING_COLUMNS)
     record.update(listing)
     record["source"] = record.get("source") or "autoscout24"
+    record["canonical_id"] = record.get("canonical_id") or record["id"]
     record["first_seen_at"] = now
     record["last_seen_at"] = now
     record["is_active"] = 1

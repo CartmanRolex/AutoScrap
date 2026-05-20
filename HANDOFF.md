@@ -39,7 +39,8 @@ Previous attempts (`?sort=createdDate&dir=desc` etc.) did NOT work.
 
 ### Fields per listing (autoscout24)
 All stored in `data/autoscrap.db`, table `listings`:
-- id, url, version_full_name, condition_type, vehicle_category
+- id, source, canonical_id, external_source, external_id, external_url
+- url, version_full_name, condition_type, vehicle_category
 - make_id, make_name, make_key, model_id, model_name, model_key
 - horse_power, kilo_watts, fuel_type, transmission_type, transmission_type_group
 - mileage, range_km, consumption_combined
@@ -64,6 +65,10 @@ All stored in `data/autoscrap.db`, table `listings`:
 - **30 listings per page**, ~78,802 total listings
 - robots.txt: `/q/` paths are allowed
 - DB primary keys are source-prefixed (`anibis:{listingID}`) to avoid collisions with AutoScout24 IDs
+- Cross-posted Anibis rows expose `formattedSource="autoscout24.ch"` and
+  `replyInfo.externalPlatform.externalURL`, e.g. `https://autoscout24.ch/20484123?...`
+- The scraper extracts that AutoScout ID into `external_id` and uses it as `canonical_id`
+  so `deduped_listings` can collapse cross-posted duplicates
 
 ### Two-step fetch strategy (important!)
 The search page gives minimal data. The detail page has full structured data.
@@ -120,6 +125,10 @@ Note: anibis pulls car specs from autoscout24's database (hence `cars_carAutoSco
 Add these columns to the existing `listings` table:
 ```sql
 ALTER TABLE listings ADD COLUMN source TEXT NOT NULL DEFAULT 'autoscout24';
+ALTER TABLE listings ADD COLUMN canonical_id TEXT;
+ALTER TABLE listings ADD COLUMN external_source TEXT;
+ALTER TABLE listings ADD COLUMN external_id TEXT;
+ALTER TABLE listings ADD COLUMN external_url TEXT;
 ALTER TABLE listings ADD COLUMN body_type TEXT;
 ALTER TABLE listings ADD COLUMN color TEXT;
 ALTER TABLE listings ADD COLUMN doors INTEGER;
@@ -128,6 +137,7 @@ ALTER TABLE listings ADD COLUMN longitude REAL;
 ```
 Also rename/repurpose `teaser` for anibis `body` description text.
 Add index: `CREATE INDEX IF NOT EXISTS idx_source ON listings(source);`
+Add view: `deduped_listings` prefers AutoScout24 rows over Anibis rows for the same `canonical_id`.
 
 ### anibis parser logic
 ```python

@@ -45,6 +45,10 @@ def parse_listing(raw: dict) -> dict:
     return {
         "id": listing_id,
         "source": "autoscout24",
+        "canonical_id": listing_id,
+        "external_source": None,
+        "external_id": None,
+        "external_url": None,
         "url": url,
         "version_full_name": version,
         "condition_type": raw.get("conditionType"),

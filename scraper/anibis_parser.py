@@ -9,6 +9,9 @@ _NEXT_DATA_RE = re.compile(
     r"<script[^>]+id=[\"']__NEXT_DATA__[\"'][^>]*>(.*?)</script>",
     re.DOTALL,
 )
+_AUTOSCOUT_ID_RE = re.compile(
+    r"[?&]utm_term=(\d+)|autoscout24\.ch/[^?#]*?(\d{6,})(?:[/?#]|$)"
+)
 
 
 def _slug(text: str | None) -> str | None:
@@ -33,6 +36,15 @@ def _safe_sqlite_int(value: object) -> int | None:
     if parsed is None or parsed > 9_223_372_036_854_775_807:
         return None
     return parsed
+
+
+def _autoscout_id_from_url(url: object) -> str | None:
+    if not isinstance(url, str):
+        return None
+    match = _AUTOSCOUT_ID_RE.search(url)
+    if not match:
+        return None
+    return next((group for group in match.groups() if group), None)
 
 
 def _extract_next_data(html_text: str) -> dict:
@@ -123,12 +135,33 @@ def parse_anibis_listing(search_node: dict, detail_node: dict | None = None) -> 
     timestamp = _pick(search_node, detail_node, "timestamp")
     title = _pick(search_node, detail_node, "title")
     body = _pick(search_node, detail_node, "body")
+    reply_platform = ((detail_node or {}).get("replyInfo") or {}).get("externalPlatform") or {}
+    external_url = (
+        reply_platform.get("externalURL")
+        or _pick(search_node, detail_node, "externalURL")
+    )
+    formatted_source = (
+        reply_platform.get("label")
+        or _pick(search_node, detail_node, "formattedSource")
+    )
+    autoscout_id = _autoscout_id_from_url(external_url)
+    external_source = (
+        "autoscout24"
+        if autoscout_id or formatted_source == "autoscout24.ch"
+        else None
+    )
+    external_id = autoscout_id if external_source == "autoscout24" else None
+    canonical_id = external_id or anibis_db_id(search_node)
 
     raw_payload = {"search": search_node, "detail": detail_node}
 
     return {
         "id": anibis_db_id(search_node),
         "source": "anibis",
+        "canonical_id": canonical_id,
+        "external_source": external_source,
+        "external_id": external_id,
+        "external_url": external_url,
         "url": detail_url(search_node),
         "version_full_name": title,
         "condition_type": None,
