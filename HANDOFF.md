@@ -3,7 +3,7 @@
 ## Project State (as of 2026-05-20)
 
 Full scraper for autoscout24.ch is working and live.
-anibis.ch has been fully analyzed and is ready to implement — nothing coded yet.
+anibis.ch is now implemented and runs alongside autoscout24.ch in `main.py`.
 
 ---
 
@@ -56,13 +56,14 @@ All stored in `data/autoscrap.db`, table `listings`:
 
 ---
 
-## anibis.ch — FULLY ANALYZED, NOT YET IMPLEMENTED
+## anibis.ch — IMPLEMENTED
 
 ### Key facts
 - URL: `https://www.anibis.ch/fr/q/voitures/Ak8CkY2Fyc5TAwMDA?sorting=newest&page=1`
 - **NO Cloudflare challenge** — plain `httpx` GET works, NO browser needed
 - **30 listings per page**, ~78,802 total listings
 - robots.txt: `/q/` paths are allowed
+- DB primary keys are source-prefixed (`anibis:{listingID}`) to avoid collisions with AutoScout24 IDs
 
 ### Two-step fetch strategy (important!)
 The search page gives minimal data. The detail page has full structured data.
@@ -115,7 +116,7 @@ Extra fields on detail page:
 
 Note: anibis pulls car specs from autoscout24's database (hence `cars_carAutoScout*` prefix).
 
-### DB changes needed
+### DB changes implemented
 Add these columns to the existing `listings` table:
 ```sql
 ALTER TABLE listings ADD COLUMN source TEXT NOT NULL DEFAULT 'autoscout24';
@@ -160,11 +161,12 @@ source = "anibis"
 - For existing IDs: just update last_seen_at (no detail fetch needed)
 - Warm polls = 1 HTTP request total; cold polls = up to 31 requests
 
-### Files to create
+### Files created
 - `scraper/anibis_fetcher.py` — httpx-based, no browser
 - `scraper/anibis_parser.py` — parse search node + detail page __NEXT_DATA__
+- `verify_anibis.py` — quick one-shot test for Anibis
 
-### Files to modify
+### Files modified
 - `db/schema.py` — add columns + migration (ALTER TABLE for existing DB)
 - `db/repository.py` — ensure upsert handles new columns
 - `main.py` — add anibis poll coroutine alongside autoscout24 loop
@@ -183,8 +185,9 @@ AutoScrap/
 ├── CLAUDE.md              — project goals, findings, dev workflow
 ├── HANDOFF.md             — this file
 ├── requirements.txt
-├── main.py                — polling loop (autoscout24 only currently)
+├── main.py                — polling loop for autoscout24 + anibis
 ├── verify_sort.py         — quick test for autoscout24
+├── verify_anibis.py       — quick test for anibis
 ├── test_parse.py          — test extraction from HTML dump
 ├── find_sort_url.py       — helper to discover sort URL via browser click
 ├── export_json.py         — dump DB to JSON
@@ -192,12 +195,14 @@ AutoScrap/
 ├── scraper/
 │   ├── browser.py         — patchright launch, user-agent
 │   ├── fetcher.py         — autoscout24 fetch + CF bypass + extraction
-│   └── parser.py          — autoscout24 listing → DB row
+│   ├── parser.py          — autoscout24 listing → DB row
+│   ├── anibis_fetcher.py  — anibis HTTP fetches
+│   └── anibis_parser.py   — anibis search/detail → DB row
 ├── db/
 │   ├── schema.py          — SQLite DDL + init_db()
 │   └── repository.py      — upsert_listing(), count_listings()
 └── data/
-    ├── autoscrap.db       — live SQLite database (~67 listings)
+    ├── autoscrap.db       — live SQLite database
     └── listings_export.json — last JSON export
 ```
 
