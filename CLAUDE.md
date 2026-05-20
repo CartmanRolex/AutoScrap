@@ -96,6 +96,12 @@ The listing ID is the last segment of the URL, e.g. `20478974` from
 The listing page shows ~20 results. To get more, append `?page=2` etc. or use filters.
 For incremental tracking, page 1 sorted by newest is sufficient (sort param TBD).
 
-### Sorting by newest
-Need to discover the sort parameter. Candidate: `?sort=10` or `?sort=age_asc`.
-Run `discover.py` again with `?sort=...` variants to confirm.
+### Sort URL
+`?sort=createdDate&dir=desc` — confirmed working. Key: "Ajoutés récemment".
+`desc=true` does NOT work (returns CF challenge). `dir=desc` is the correct param.
+
+### Cloudflare warm-up required
+Navigating directly to the sorted URL on a fresh browser session triggers CF challenge.
+Fix: always navigate to the BASE URL first (unsorted), then navigate to the sorted URL.
+The `navigate_to_listings()` function in `scraper/fetcher.py` handles this automatically.
+Subsequent `reload_listings()` calls reuse the live session and work fine.

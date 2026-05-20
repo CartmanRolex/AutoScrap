@@ -4,4 +4,6 @@ __pycache__/
 data/*.db
 data/*.jsonl
 data/*.har
+data/*.html
+data/*.json
 .env
