@@ -1,5 +1,11 @@
 from patchright.async_api import async_playwright
 
+_UA = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/131.0.0.0 Safari/537.36"
+)
+
 
 async def launch_browser(headless: bool = False):
     p = await async_playwright().start()
@@ -8,7 +14,6 @@ async def launch_browser(headless: bool = False):
         viewport={"width": 1366, "height": 768},
         locale="fr-CH",
         timezone_id="Europe/Zurich",
-        record_har_path="data/trace.har",
-        record_har_url_filter="*autoscout24*",
+        user_agent=_UA,
     )
     return p, browser, context
