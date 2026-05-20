@@ -8,6 +8,7 @@ from scraper.parser import parse_listing
 async def main():
     p, browser, context = await launch_browser(headless=False)
     page = await context.new_page()
+    print("Complete the Cloudflare challenge if it appears ...")
     raw = await navigate_to_listings(page)
     await context.close(); await browser.close(); await p.stop()
 

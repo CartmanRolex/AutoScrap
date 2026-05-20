@@ -48,10 +48,10 @@ async def main() -> None:
     p, browser, context = await launch_browser(headless=False)
     page = await context.new_page()
 
-    log.info("Loading listings page for the first time ...")
+    log.info("Loading listings page — if a Cloudflare challenge appears, click through it in the browser window.")
     raw_listings = await navigate_to_listings(page)
     if not raw_listings:
-        log.error("First fetch returned no listings — check browser and CF bypass")
+        log.error("First fetch returned no listings — CF challenge not completed?")
         await context.close(); await browser.close(); await p.stop()
         return
 
