@@ -9,11 +9,27 @@ def _slug(text: str) -> str:
     return text.strip('-')
 
 
+def _as_dict(value) -> dict:
+    return value if isinstance(value, dict) else {}
+
+
+def _name_from(value):
+    if isinstance(value, dict):
+        return value.get("name")
+    if isinstance(value, str):
+        return value
+    return None
+
+
 def parse_listing(raw: dict) -> dict:
     """Flatten a raw listing dict into a single-level dict ready for DB insert."""
     listing_id = str(raw["id"])
     version = raw.get("versionFullName") or ""
-    make_key = (raw.get("make") or {}).get("key") or ""
+    make = raw.get("make")
+    model = raw.get("model")
+    make_dict = _as_dict(make)
+    model_dict = _as_dict(model)
+    make_key = make_dict.get("key") or (_slug(make) if isinstance(make, str) else "")
 
     # Construct the canonical listing URL
     if version and make_key:
@@ -21,12 +37,10 @@ def parse_listing(raw: dict) -> dict:
     else:
         url = f"https://www.autoscout24.ch/fr/d/{listing_id}"
 
-    seller = raw.get("seller") or {}
-    make = raw.get("make") or {}
-    model = raw.get("model") or {}
-    leasing = raw.get("leasing") or {}
-    warranty = raw.get("warranty") or {}
-    consumption = raw.get("consumption") or {}
+    seller = _as_dict(raw.get("seller"))
+    leasing = _as_dict(raw.get("leasing"))
+    warranty = _as_dict(raw.get("warranty"))
+    consumption = _as_dict(raw.get("consumption"))
 
     return {
         "id": listing_id,
@@ -36,12 +50,12 @@ def parse_listing(raw: dict) -> dict:
         "condition_type": raw.get("conditionType"),
         "vehicle_category": raw.get("vehicleCategory"),
         # Make / model
-        "make_id": make.get("id"),
-        "make_name": make.get("name"),
-        "make_key": make.get("key"),
-        "model_id": model.get("id"),
-        "model_name": model.get("name"),
-        "model_key": model.get("key"),
+        "make_id": make_dict.get("id"),
+        "make_name": _name_from(make),
+        "make_key": make_key,
+        "model_id": model_dict.get("id"),
+        "model_name": _name_from(model),
+        "model_key": model_dict.get("key") or (_slug(model) if isinstance(model, str) else None),
         # Performance & specs
         "horse_power": raw.get("horsePower"),
         "kilo_watts": raw.get("kiloWatts"),

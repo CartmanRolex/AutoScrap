@@ -1,4 +1,5 @@
 """Incremental listing poller for Swiss car marketplaces."""
+import argparse
 import asyncio
 import logging
 from datetime import datetime, timezone
@@ -83,7 +84,7 @@ async def poll_anibis_once(conn, client) -> tuple[int, int]:
     return new_count, len(search_nodes)
 
 
-async def main() -> None:
+async def main(run_once: bool = False) -> None:
     log.info("Initialising database ...")
     conn = init_db()
     log.info(
@@ -127,6 +128,10 @@ async def main() -> None:
             count_listings(conn, "anibis"),
         )
 
+        if run_once:
+            log.info("Run-once requested; exiting before poll loop.")
+            return
+
         log.info("Starting poll loop every %ds ...", POLL_INTERVAL_S)
         while True:
             await asyncio.sleep(POLL_INTERVAL_S)
@@ -158,4 +163,11 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    parser = argparse.ArgumentParser(description="Poll AutoScout24 and Anibis listings.")
+    parser.add_argument(
+        "--once",
+        action="store_true",
+        help="Run the initial AutoScout24 and Anibis scrape, then exit.",
+    )
+    args = parser.parse_args()
+    asyncio.run(main(run_once=args.once))
